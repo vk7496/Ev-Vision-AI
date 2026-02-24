@@ -1,83 +1,68 @@
 import streamlit as st
 import replicate
 import os
-from PIL import Image
 
-# 1. تنظیمات دوزبانه و استایل‌های دکوراسیون
+# 1. تنظیمات ظاهر و زبان
+st.set_page_config(page_title="EvVision-AI", layout="wide")
+
 translations = {
-    "English": {
-        "title": "🏠 EvVision-AI",
-        "subtitle": "Instant AI Virtual Staging",
-        "sidebar_header": "Design Settings",
-        "upload_label": "Upload a photo of an empty room",
-        "button": "Generate Design ✨",
-        "loading": "Designing your space...",
-        "style_label": "Choose Interior Style",
-        "styles": ["Modern Luxury", "Scandinavian", "Minimalist", "Classic Turkish", "Industrial"]
-    },
     "Türkçe": {
         "title": "🏠 EvVision-AI",
-        "subtitle": "Yapay Zeka Destekli Sanal Dekorasyon",
-        "sidebar_header": "Tasarım Ayarları",
-        "upload_label": "Boş bir oda fotoğrafı yükleyin",
+        "style_label": "Tasarım Tarzını Seçin",
+        "styles": ["Modern", "Minimalist", "Industrial", "Scandinavian", "Luxury"],
         "button": "Tasarımı Oluştur ✨",
-        "loading": "Tasarımınız hazırlanıyor...",
-        "style_label": "İç Mekan Tarzı Seçin",
-        "styles": ["Modern Lüks", "İskandinav", "Minimalist", "Klasik Türk", "Endüstriyel"]
+        "upload_msg": "Boş oda fotoğrafı yükleyin"
+    },
+    "English": {
+        "title": "🏠 EvVision-AI",
+        "style_label": "Select Design Style",
+        "styles": ["Modern", "Minimalist", "Industrial", "Scandinavian", "Luxury"],
+        "button": "Generate Design ✨",
+        "upload_msg": "Upload empty room photo"
     }
 }
 
-# 2. تنظیمات صفحه
-st.set_page_config(page_title="EvVision-AI | PropTech", layout="wide")
-
-# 3. مدیریت زبان
-lang = st.sidebar.selectbox("🌐 Language / Dil", ["Türkçe", "English"])
+# 2. سایدبار (منوی سمت چپ)
+lang = st.sidebar.selectbox("🌐 Language", ["Türkçe", "English"])
 t = translations[lang]
 
-# 4. فراخوانی امن توکن از Secrets
+st.sidebar.header(t["title"])
+selected_style = st.sidebar.selectbox(t["style_label"], t["styles"])
+
+# 3. بررسی توکن
 if "REPLICATE_API_TOKEN" in st.secrets:
     os.environ["REPLICATE_API_TOKEN"] = st.secrets["REPLICATE_API_TOKEN"]
 else:
-    st.error("⚠️ API Token missing in Streamlit Secrets!")
+    st.error("API Token missing in Secrets!")
     st.stop()
 
-# 5. بخش انتخاب سبک در سایدبار (سمت چپ)
-st.sidebar.divider()
-st.sidebar.header(t["sidebar_header"])
-selected_style = st.sidebar.radio(t["style_label"], t["styles"])
-
-# 6. رابط کاربری اصلی
+# 4. بدنه اصلی
 st.title(t["title"])
-st.subheader(t["subtitle"])
-
-uploaded_file = st.file_uploader(t["upload_label"], type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader(t["upload_msg"], type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
     col1, col2 = st.columns(2)
-    
     with col1:
-        st.image(uploaded_file, caption="Original Photo", use_container_width=True)
-        
+        st.image(uploaded_file, caption="Original", use_container_width=True)
+
     if st.button(t["button"]):
-        with st.spinner(t["loading"]):
+        with st.spinner("AI is designing..."):
             try:
-                # استفاده از یک مدل بسیار پایدار و عمومی برای رفع ارور 422
-                # این مدل (ControlNet Depth) ساختار اتاق را کاملا حفظ می‌کند
+                # این مدل مخصوص دکوراسیون داخلیه و احتمال ارورش خیلی کمه
                 output = replicate.run(
-                    "lucataco/controlnet-depth:985e133e8a5a54452a2333",
+                    "adirik/interior-design:76604a39c3816481cc23f39d05e0cbf6e728f87c5411a0d010545656967340fb",
                     input={
                         "image": uploaded_file,
-                        "prompt": f"a professional photo of a {selected_style} interior, highly detailed, realistic lighting, 8k, interior design magazine style",
-                        "n_prompt": "low quality, blurry, distorted, change walls, extra windows, messy",
-                        "num_inference_steps": 30
+                        "prompt": f"a professional photo of a {selected_style} room, high quality, realistic lighting",
+                        "guidance_scale": 7.5,
+                        "num_inference_steps": 25
                     }
                 )
-                
                 with col2:
-                    st.image(output[0], caption="AI Proposed Design", use_container_width=True)
+                    st.image(output[1], caption="AI Design", use_container_width=True)
                     st.success("Done!")
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"خطای جدید: {e}")
 
 st.divider()
-st.caption("EvVision-AI - 2026 PropTech Solution for Turkey Market")
+st.caption("EvVision-AI 2026")
