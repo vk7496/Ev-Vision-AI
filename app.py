@@ -3,57 +3,58 @@ import replicate
 import os
 from PIL import Image
 
-# 1. تنظیمات دیکشنری زبان‌ها
+# 1. تنظیمات زبان (دوزبانه: ترکی و انگلیسی)
 translations = {
     "English": {
-        "title": "🏠 AI Interior Designer",
-        "subtitle": "Transform empty spaces into luxury furnished rooms instantly.",
-        "sidebar_header": "Settings",
-        "api_label": "Enter Replicate API Token",
+        "title": "🏠 EvVision-AI",
+        "subtitle": "Instant AI Virtual Staging for Turkish Real Estate",
+        "sidebar_header": "Design Settings",
         "lang_select": "Choose Language",
         "upload_label": "Upload a photo of an empty room",
         "button": "Generate Design ✨",
-        "loading": "Designing in Istanbul Luxury style...",
+        "loading": "Designing in luxury style...",
         "success": "Render Complete!",
-        "input_caption": "Current Empty Unit",
-        "output_caption": "AI Proposed Design",
-        "style_label": "Choose Style",
-        "styles": ["Modern", "Classic Ottoman", "Minimalist"]
+        "input_caption": "Empty Unit",
+        "output_caption": "AI Proposed Interior",
+        "style_label": "Select Style",
+        "styles": ["Modern Istanbul", "Luxury Marble", "Minimalist White", "Classic Ottoman"]
     },
     "Türkçe": {
-        "title": "🏠 Yapay Zeka İç Mimari",
-        "subtitle": "Boş alanları anında lüks döşenmiş odalara dönüştürün.",
-        "sidebar_header": "Ayarlar",
-        "api_label": "Replicate API Token Giriniz",
+        "title": "🏠 EvVision-AI",
+        "subtitle": "Gayrimenkul Satışları İçin Yapay Zeka Destekli Sanal Dekorasyon",
+        "sidebar_header": "Tasarım Ayarları",
         "lang_select": "Dil Seçin",
-        "upload_label": "Boş bir oda fotoğrafı yükleyin",
+        "upload_label": "Boş oda fotoğrafı yükleyin",
         "button": "Tasarımı Oluştur ✨",
-        "loading": "İstanbul Lüks tarzında tasarlanıyor...",
+        "loading": "Lüks tarzda tasarlanıyor...",
         "success": "Render Tamamlandı!",
-        "input_caption": "Mevcut Boş Ünite",
+        "input_caption": "Boş Ünite",
         "output_caption": "AI Önerilen Tasarım",
         "style_label": "Tarz Seçin",
-        "styles": ["Modern", "Klasik Osmanlı", "Minimalist"]
+        "styles": ["Modern İstanbul", "Lüks Mermer", "Minimalist Beyaz", "Klasik Osmanlı"]
     }
 }
 
 # 2. تنظیمات صفحه
-st.set_page_config(page_title="PropTech AI Turkey", layout="wide")
+st.set_page_config(page_title="EvVision-AI | PropTech Turkey", layout="wide")
 
-# 3. انتخاب زبان در سایدبار
-st.sidebar.title("🌐 Language / Dil")
-lang = st.sidebar.selectbox("Select Language", ["English", "Türkçe"])
+# 3. مدیریت زبان در سایدبار
+lang = st.sidebar.selectbox("🌐 Language / Dil", ["Türkçe", "English"])
 t = translations[lang]
 
-# 4. محتوای اصلی
+# 4. تنظیم امنیتی توکن (از Secrets استریم‌لایت)
+if "REPLICATE_API_TOKEN" in st.secrets:
+    os.environ["REPLICATE_API_TOKEN"] = st.secrets["REPLICATE_API_TOKEN"]
+else:
+    st.error("⚠️ API Token missing! Please add REPLICATE_API_TOKEN to Streamlit Secrets.")
+    st.stop()
+
+# 5. رابط کاربری اصلی
 st.title(t["title"])
 st.subheader(t["subtitle"])
 
 st.sidebar.divider()
 st.sidebar.header(t["sidebar_header"])
-REPLICATE_API_TOKEN = st.sidebar.text_input(t["api_label"], type="password")
-os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
-
 selected_style = st.sidebar.selectbox(t["style_label"], t["styles"])
 
 uploaded_file = st.file_uploader(t["upload_label"], type=["jpg", "jpeg", "png"])
@@ -65,25 +66,35 @@ if uploaded_file is not None:
         st.image(uploaded_file, caption=t["input_caption"], use_container_width=True)
         
     if st.button(t["button"]):
-        if not REPLICATE_API_TOKEN:
-            st.error("Please enter API Token / Lütfen API Token giriniz.")
-        else:
-            with st.spinner(t["loading"]):
-                try:
-                    # تنظیم پرامپت بر اساس سبک انتخابی
-                    style_prompt = f"{selected_style} Turkish interior design, high-end materials"
+        with st.spinner(t["loading"]):
+            try:
+                # بهینه‌سازی پرامپت برای بازار ترکیه
+                prompt_details = f"{selected_style} interior design, high-end materials, realistic lighting, 8k, architectural photography"
+                
+                # فراخوانی مدل
+                output = replicate.run(
+                    "jagadeeshr-t/interior-ai:76604a39c3816481cc23f39",
+                    input={
+                        "image": uploaded_file,
+                        "prompt": prompt_details,
+                        "n_prompt": "low quality, distorted, changing walls, extra windows, blurry",
+                    }
+                )
+                
+                with col2:
+                    st.image(output[0], caption=t["output_caption"], use_container_width=True)
+                    st.success(t["success"])
                     
-                    output = replicate.run(
-                        "jagadeeshr-t/interior-ai:76604a39c3816481cc23f39",
-                        input={
-                            "image": uploaded_file,
-                            "prompt": f"{style_prompt}, luxury, marble floors, 8k, realistic",
-                            "n_prompt": "low quality, change walls, distorted",
-                        }
+                    # امکان دانلود تصویر خروجی
+                    st.download_button(
+                        label="Download Render",
+                        data=output[0],
+                        file_name="evvision_render.png",
+                        mime="image/png"
                     )
-                    
-                    with col2:
-                        st.image(output[0], caption=t["output_caption"], use_container_width=True)
-                        st.success(t["success"])
-                except Exception as e:
-                    st.error(f"Error: {e}")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+# فوتر ساده
+st.divider()
+st.caption("EvVision-AI - Developed for Turkey PropTech Market 2026")
