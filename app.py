@@ -2,85 +2,88 @@ import streamlit as st
 import replicate
 import os
 
-# 1. تنظیمات صفحه
-st.set_page_config(page_title="EvVision-AI", layout="wide", page_icon="🏠")
+# تنظیمات ظاهری و هویتی اپلیکیشن
+st.set_page_config(page_title="EvVision-AI | PropTech Solution", layout="wide", page_icon="🏗️")
 
-# 2. دیکشنری ترجمه‌ها
+# سیستم چندزبانه برای بازارهای عمان و ترکیه
 translations = {
-    "Türkçe": {
-        "title": "🏠 EvVision-AI",
-        "style_label": "Tasarım Tarزını Seçin",
-        "styles": ["Modern Luxury", "Scandinavian", "Minimalist", "Classic Turkish", "Industrial"],
-        "button": "Tasarımı Oluştur ✨",
-        "upload_msg": "Boş oda fotoğrafı yükleyin",
-        "error_msg": "Bir hata oluştu: ",
-        "success_msg": "Tasarım Hazır!"
-    },
     "English": {
-        "title": "🏠 EvVision-AI",
-        "style_label": "Select Interior Style",
-        "styles": ["Modern Luxury", "Scandinavian", "Minimalist", "Classic Turkish", "Industrial"],
-        "button": "Generate Design ✨",
-        "upload_msg": "Upload an empty room photo",
-        "error_msg": "An error occurred: ",
-        "success_msg": "Design Completed!"
+        "header": "🏗️ AI Construction Visualizer",
+        "sub": "Transform raw construction sites into finished luxury spaces.",
+        "upload": "Upload site photo (Raw/Construction)",
+        "style": "Target Finishing Style",
+        "btn": "Render Final View ✨",
+        "processing": "Analyzing structure and applying materials..."
+    },
+    "Arabic": {
+        "header": "🏗️ مصور الإنشاءات بالذكاء الاصطناعي",
+        "sub": "حول مواقع البناء الخام إلى مساحات فاخرة جاهزة.",
+        "upload": "تحميل صورة الموقع (قيد الإنشاء)",
+        "style": "نمط التشطيب المستهدف",
+        "btn": "عرض النتيجة النهائية ✨",
+        "processing": "تحليل الهيكل وتطبيق المواد..."
+    },
+    "Turkish": {
+        "header": "🏗️ Yapay Zeka İnşaat Görselleştirici",
+        "sub": "İnşaat halindeki alanları bitmiş lüks mekanlara dönüştürün.",
+        "upload": "Saha fotoğrafı yükleyin (Kaba İnşaat)",
+        "style": "Hedef Tasarım Tarzı",
+        "btn": "Son Görünümü Oluştur ✨",
+        "processing": "Yapı analiz ediliyor ve malzemeler uygulanıyor..."
     }
 }
 
-# 3. سایدبار و انتخاب زبان
-lang = st.sidebar.selectbox("🌐 Language / Dil", ["English", "Türkçe"])
+lang = st.sidebar.selectbox("🌐 Select Market / Language", ["English", "Arabic", "Turkish"])
 t = translations[lang]
 
-st.sidebar.divider()
-st.sidebar.header("Design Menu")
-selected_style = st.sidebar.radio(t["style_label"], t["styles"])
-
-# 4. تنظیم توکن Replicate
-# اول در Secrets چک می‌کند، اگر نبود از متغیر سیستم می‌خواند
+# مدیریت کلید API
 if "REPLICATE_API_TOKEN" in st.secrets:
     os.environ["REPLICATE_API_TOKEN"] = st.secrets["REPLICATE_API_TOKEN"]
 else:
-    st.sidebar.warning("⚠️ API Token not found in Secrets. Please add it.")
+    st.error("Missing REPLICATE_API_TOKEN in Secrets!")
+    st.stop()
 
-# 5. بدنه اصلی برنامه
-st.title(t["title"])
-uploaded_file = st.file_uploader(t["upload_msg"], type=["jpg", "jpeg", "png"])
+st.title(t["header"])
+st.markdown(f"*{t['sub']}*")
+
+uploaded_file = st.file_uploader(t["upload"], type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
     col1, col2 = st.columns(2)
     
     with col1:
-        st.image(uploaded_file, caption="Original", use_container_width=True)
+        st.image(uploaded_file, caption="Site Condition (Raw)", use_container_width=True)
+        selected_style = st.selectbox(t["style"], ["Ultra Modern", "Classic Luxury", "Industrial Office", "Minimalist Residential"])
 
-    if st.button(t["button"]):
-        with st.spinner("AI is reimagining your space..."):
+    if st.button(t["btn"]):
+        with st.spinner(t["processing"]):
             try:
-                # فراخوانی مدل جدید و پایدارتر
-                # این نسخه مدل تست شده و خروجی با کیفیتی دارد
+                # استفاده از ControlNet برای حفظ دقیق خطوط معماری
+                # این مدل برای عکس‌های شلوغ کارگاهی عالی عمل می‌کند
                 output = replicate.run(
-                    "lucataco/interior-design:76604a39c3816481cc23f39d05e0cbf6e728f87c5411a0d010545656967340fb",
+                    "jagilley/controlnet-hough:854e96fc0574160c90d3c5d6e19276c93685477d57572d422030616b54238e8",
                     input={
                         "image": uploaded_file,
-                        "prompt": f"a professional high-quality photo of a {selected_style} room, realistic lighting, highly detailed, 8k uhd, architectural photography",
-                        "guidance_scale": 7.5,
-                        "num_inference_steps": 25
+                        "prompt": f"a professional interior design photo of a {selected_style} room, finished walls, high-end flooring, cinematic lighting, architectural render, 8k",
+                        "n_prompt": "people, construction tools, ladders, boxes, messy, unfinished, blurry, distorted, text",
+                        "num_samples": "1",
+                        "image_resolution": "768",
+                        "ddim_steps": 25,
+                        "scale": 9
                     }
                 )
-
+                
                 with col2:
-                    # بررسی نوع خروجی برای نمایش درست تصویر
-                    if isinstance(output, list):
-                        res_image = output[1] if len(output) > 1 else output[0]
-                    else:
-                        res_image = output
+                    # مدل ControlNet معمولاً دو خروجی می‌دهد: نقشه خطوط و رندر نهایی
+                    final_image = output[1] if isinstance(output, list) and len(output) > 1 else output[0]
+                    st.image(final_image, caption="AI Transformation", use_container_width=True)
+                    st.success("Visualization Ready!")
                     
-                    st.image(res_image, caption="AI Generated Design", use_container_width=True)
-                    st.success(t["success_msg"])
-                    
+                    # امکان دانلود برای ارائه به مشتری
+                    st.download_button("Download Render", final_image, file_name="render.png")
+            
             except Exception as e:
-                st.error(f"{t['error_msg']} {str(e)}")
-                st.info("Tip: Check if your Replicate API token has enough credits.")
+                st.error(f"Render Error: {e}")
 
-# فوتر
 st.divider()
-st.caption("EvVision-AI - 2026 PropTech Solution")
+st.caption("EvVision-AI - Professional PropTech Solution 2026")
