@@ -1,50 +1,61 @@
 import streamlit as st
 import replicate
 import os
+import requests
+from PIL import Image
+from io import BytesIO
 
-# تنظیمات ظاهری و هویتی اپلیکیشن
-st.set_page_config(page_title="EvVision-AI | PropTech Solution", layout="wide", page_icon="🏗️")
+# 1. تنظیمات اولیه و هویت برند
+st.set_page_config(page_title="EvVision-AI | PropTech Solutions", layout="wide", page_icon="🏗️")
 
-# سیستم چندزبانه برای بازارهای عمان و ترکیه
+# سیستم ترجمه برای بازارهای هدف (عمان، ترکیه و بین‌الملل)
 translations = {
     "English": {
         "header": "🏗️ AI Construction Visualizer",
-        "sub": "Transform raw construction sites into finished luxury spaces.",
+        "sub": "Transform raw sites into finished luxury spaces.",
         "upload": "Upload site photo (Raw/Construction)",
-        "style": "Target Finishing Style",
-        "btn": "Render Final View ✨",
-        "processing": "Analyzing structure and applying materials..."
+        "style": "Target Design Style",
+        "btn": "Render Professional View ✨",
+        "processing": "Analyzing architecture and applying materials...",
+        "success": "Visualization Ready!",
+        "error_422": "Version mismatch detected. Re-fetching latest AI engine..."
     },
     "Arabic": {
         "header": "🏗️ مصور الإنشاءات بالذكاء الاصطناعي",
-        "sub": "حول مواقع البناء الخام إلى مساحات فاخرة جاهزة.",
+        "sub": "حول مواقع البناء الخام إلى مساحات فاخرة.",
         "upload": "تحميل صورة الموقع (قيد الإنشاء)",
-        "style": "نمط التشطيب المستهدف",
+        "style": "نمط التصميم المستهدف",
         "btn": "عرض النتيجة النهائية ✨",
-        "processing": "تحليل الهيكل وتطبيق المواد..."
+        "processing": "تحليل الهيكل وتطبيق المواد...",
+        "success": "العرض جاهز!",
+        "error_422": "تم اكتشاف عدم تطابق في الإصدار. جارٍ تحديث المحرك..."
     },
     "Turkish": {
         "header": "🏗️ Yapay Zeka İnşaat Görselleştirici",
-        "sub": "İnşaat halindeki alanları bitmiş lüks mekanlara dönüştürün.",
-        "upload": "Saha fotoğrafı yükleyin (Kaba İnşaat)",
+        "sub": "Kaba inşaatları bitmiş lüks mekanlara dönüştürün.",
+        "upload": "Saha fotoğrafı yükleyin (İnşaat Hali)",
         "style": "Hedef Tasarım Tarzı",
-        "btn": "Son Görünümü Oluştur ✨",
-        "processing": "Yapı analiz ediliyor ve malzemeler uygulanıyor..."
+        "btn": "Görünümü Oluştur ✨",
+        "processing": "Yapı analiz ediliyor و malzemeler uygulanıyor...",
+        "success": "Görselleştirme Hazır!",
+        "error_422": "Sürüm hatası algılandı. Güncel motor çekiliyor..."
     }
 }
 
-lang = st.sidebar.selectbox("🌐 Select Market / Language", ["English", "Arabic", "Turkish"])
+# انتخاب زبان در سایدبار
+lang = st.sidebar.selectbox("🌐 Market / Language", ["English", "Arabic", "Turkish"])
 t = translations[lang]
 
-# مدیریت کلید API
+# 2. مدیریت توکن امنیتی
 if "REPLICATE_API_TOKEN" in st.secrets:
     os.environ["REPLICATE_API_TOKEN"] = st.secrets["REPLICATE_API_TOKEN"]
 else:
-    st.error("Missing REPLICATE_API_TOKEN in Secrets!")
+    st.sidebar.error("⚠️ API Token missing in Streamlit Secrets!")
     st.stop()
 
+# 3. رابط کاربری اصلی
 st.title(t["header"])
-st.markdown(f"*{t['sub']}*")
+st.markdown(f"#### {t['sub']}")
 
 uploaded_file = st.file_uploader(t["upload"], type=["jpg", "jpeg", "png"])
 
@@ -52,38 +63,50 @@ if uploaded_file:
     col1, col2 = st.columns(2)
     
     with col1:
-        st.image(uploaded_file, caption="Site Condition (Raw)", use_container_width=True)
-        selected_style = st.selectbox(t["style"], ["Ultra Modern", "Classic Luxury", "Industrial Office", "Minimalist Residential"])
+        st.image(uploaded_file, caption="Original Site Condition", use_container_width=True)
+        selected_style = st.selectbox(t["style"], 
+                                    ["Modern Luxury", "Scandinavian Business", "Minimalist Residential", "Classic Industrial"])
 
     if st.button(t["btn"]):
         with st.spinner(t["processing"]):
             try:
-                # استفاده از ControlNet برای حفظ دقیق خطوط معماری
-                # این مدل برای عکس‌های شلوغ کارگاهی عالی عمل می‌کند
+                # راهکار حل دائمی ارور 422: گرفتن پویا (Dynamic) آخرین ورژن مدل
+                model = replicate.models.get("jagilley/controlnet-hough")
+                latest_version = model.versions.list()[0].id
+                
+                # اجرای پردازش تصویر با مدل ControlNet برای حفظ ساختار معماری
                 output = replicate.run(
-                    "jagilley/controlnet-hough:854e96fc0574160c90d3c5d6e19276c93685477d57572d422030616b54238e8",
+                    f"jagilley/controlnet-hough:{latest_version}",
                     input={
                         "image": uploaded_file,
-                        "prompt": f"a professional interior design photo of a {selected_style} room, finished walls, high-end flooring, cinematic lighting, architectural render, 8k",
-                        "n_prompt": "people, construction tools, ladders, boxes, messy, unfinished, blurry, distorted, text",
-                        "num_samples": "1",
+                        "prompt": f"a professional high-quality interior design photo of a {selected_style} room, finished walls, premium materials, realistic cinematic lighting, 8k, architectural digest style",
+                        "n_prompt": "people, workers, ladders, construction tools, boxes, messy, dirt, low quality, text, watermark, blurry",
                         "image_resolution": "768",
-                        "ddim_steps": 25,
-                        "scale": 9
+                        "ddim_steps": 30,
+                        "scale": 9,
+                        "a_prompt": "high quality, extremely detailed, photorealistic"
                     }
                 )
                 
                 with col2:
-                    # مدل ControlNet معمولاً دو خروجی می‌دهد: نقشه خطوط و رندر نهایی
-                    final_image = output[1] if isinstance(output, list) and len(output) > 1 else output[0]
-                    st.image(final_image, caption="AI Transformation", use_container_width=True)
-                    st.success("Visualization Ready!")
+                    # استخراج تصویر نهایی (معمولاً ایندکس 1 در این مدل خروجی اصلی است)
+                    result_url = output[1] if isinstance(output, list) and len(output) > 1 else output[0]
+                    st.image(result_url, caption=f"AI Finished Concept: {selected_style}", use_container_width=True)
+                    st.success(t["success"])
                     
-                    # امکان دانلود برای ارائه به مشتری
-                    st.download_button("Download Render", final_image, file_name="render.png")
+                    # قابلیت دانلود برای ارائه به کارفرما
+                    response = requests.get(result_url)
+                    st.download_button(label="Download Full Render", 
+                                     data=BytesIO(response.content), 
+                                     file_name="evvision_render.png", 
+                                     mime="image/png")
             
             except Exception as e:
-                st.error(f"Render Error: {e}")
+                if "422" in str(e):
+                    st.error(t["error_422"])
+                else:
+                    st.error(f"Technical Error: {e}")
+                    st.info("Ensure your Replicate billing is active and the API token is correct.")
 
 st.divider()
-st.caption("EvVision-AI - Professional PropTech Solution 2026")
+st.caption("EvVision-AI | Advanced PropTech Solution for Construction Visualization 2026")
